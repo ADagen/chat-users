@@ -1,9 +1,18 @@
 .User-root {
-    width: 500px;
+    position: absolute;
+    cursor: pointer;
+    width: 100%;
     height: 50px;
     border: 1px solid black;
+    box-sizing: border-box;
     font-size: 13px;
     white-space: nowrap;
+    background-color: transparent;
+    transition: background-color .2s ease;
+}
+
+.User-root:hover {
+    background-color: #eee;
 }
 
 .User-row {

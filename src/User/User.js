@@ -4,6 +4,7 @@ import * as React from 'react';
 import './User.css';
 
 type UserProps = {
+    id: number,
     name: string, // Имя пользователя
     text: string, // Текст последнего сообщения
     date: number, // Дата последнего сообщения
@@ -19,14 +20,15 @@ function dateFormatter(date: number): string {
  * @class User
  */
 const User: React.ComponentType<UserProps> = ({
+    id,
     name,
     text,
     date,
     unread,
 }) => (
-    <div className="User-root">
+    <div className="User-root" style={{ top: id * 50 }}>
         <div className="User-row">
-            <span className="User-name">{name}</span>, непрочитано: {unread}
+            <span className="User-name">{id}: {name}</span>, непрочитано: {unread}
         </div>
         <div className="User-row">
             <div className="User-date">{dateFormatter(date)}:&nbsp;</div>

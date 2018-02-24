@@ -1,7 +1,5 @@
 [options]
-module.file_ext=.css
 module.file_ext=.js
-module.file_ext=.json
 
 module.ignore_non_literal_requires=true
 esproposal.class_static_fields=enable
@@ -17,3 +15,6 @@ flow-typed
 .*/__mocks__/.*
 .*/build/.*
 .*/public/.*
+<PROJECT_ROOT>/node_modules/@babel/.*
+<PROJECT_ROOT>/node_modules/webpack/.*
+<PROJECT_ROOT>/node_modules/resize-observer-polyfill/dist/ResizeObserver.js.flow

@@ -2,12 +2,11 @@ body {
   margin: 0;
   padding: 0;
   font-family: sans-serif;
-  overflow-y: scroll;
 }
 
 aside {
   opacity: 0.8;
-  position: fixed;
+  position: absolute;
   background: lightgray;
   right: 0;
   padding: 10px 10px 0;

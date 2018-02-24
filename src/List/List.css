@@ -1,8 +1,11 @@
-.App {
-  text-align: center;
+.List-wrap {
+    max-height: 100vh;
+    overflow-y: scroll;
+    width: 500px;
 }
 
-.App-button {
-    display: block;
-    margin: 15px;
+.List-container {
+    width: 100%;
+    overflow-x: hidden;
+    position: relative;
 }
