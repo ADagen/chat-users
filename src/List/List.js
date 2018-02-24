@@ -3,6 +3,7 @@
 import * as React from 'react';
 import ResizeObserver from 'resize-observer-polyfill';
 import cx from 'classnames';
+import debounce from 'lodash.debounce'
 import User from '../User';
 import './List.css';
 
@@ -77,13 +78,6 @@ class List extends React.Component<ListProps, ListState> {
     setWrapRef: React.Ref<'div'> = node => { this.wrapRef = node };
 
     /**
-     * Флаг состояния для дебаунса скролла
-     * @property List#scrollMuted
-     * @type {boolean}
-     */
-    scrollMuted: boolean = false;
-
-    /**
      * Хранит текущее состояние scrollTop
      * @property List#scrollTop
      * @type {number}
@@ -91,32 +85,47 @@ class List extends React.Component<ListProps, ListState> {
     scrollTop: number = 0;
 
     /**
-     * Обработчик скролла
-     * TODO: сделать через rAF вместо setTimeout
+     * Обработчик скролла контейнера внутри враппера
+     * TODO: рассмотреть вариант через rAF вместо setTimeout/debounce
+     * @method List#onScroll
      * @param {Event} event
+     * @returns {void}
      */
     onScroll = (event: Event): void => {
         // подключать debounce ради одного использования посчитал излишним
         const target = (event.currentTarget: window.HTMLElement);
         this.scrollTop = target.scrollTop;
-
-        if (!this.scrollMuted) {
-            this.scrollMuted = true;
-            // console.log('scroll', this.scrollTop);
-            const { scrollTop } = this;
-            this.setState(() => ({ scrollTop }));
-            setTimeout(() => this.scrollMuted = false, 150);
-        }
-
+        this.setScrollTop();
     };
 
+    /**
+     * Метод для установки scrollTop, debounced, вызывается раз в 200 мс.
+     * @method List#setScrollTop
+     * @returns {void}
+     */
+    setScrollTop = debounce(() => {
+        const { scrollTop } = this;
+        this.setState({ scrollTop });
+    }, {
+        wait: 200,
+        leading: true,
+        trailing: true,
+    });
+
+    /**
+     * Обработчик ресайза враппера
+     * @method List#onResize
+     * @param {ResizeObserverEntries} entries
+     *      @param {ResizeObserverEntry} entries[0] - wrap
+     * @returns {void}
+     */
     onResize = ([wrap]: ResizeObserverEntries): void => {
         // Беру сразу нулевой элемент, чтобы не проверять на соответствие,
         // так как ResizeObserver для каждого инстанса List свой.
         // В более сложном случае тут должна быть проверка `wrap.target === this.wrapRef`
         const cr: DOMRectReadOnly = wrap.contentRect;
         const { height } = cr;
-        this.setState(() => ({ height }));
+        this.setState({ height });
     };
 
     ro = new ResizeObserver(this.onResize);
@@ -125,7 +134,6 @@ class List extends React.Component<ListProps, ListState> {
         if (this.wrapRef) {
             // стандартный реактовский onScroll не подошёл, т.к. не поддерживает passive: true
             this.wrapRef.addEventListener('scroll', this.onScroll, { passive: true });
-            // $FlowFixMe
             this.ro.observe(this.wrapRef);
         } else {
             const message = 'всё пропало';
