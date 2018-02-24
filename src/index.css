@@ -1,18 +1,19 @@
 body {
-  margin: 0;
-  padding: 0;
-  font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
 }
 
 aside {
-  opacity: 0.8;
-  position: absolute;
-  background: lightgray;
-  right: 0;
-  padding: 10px 10px 0;
+    z-index: 5;
+    opacity: 0.8;
+    position: absolute;
+    background: lightgray;
+    right: 0;
+    padding: 10px 10px 0;
 }
 
 button {
-  display: block;
-  margin: 10px 0;
+    display: block;
+    margin: 10px 0;
 }
