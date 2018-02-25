@@ -3,7 +3,10 @@
 import * as React from 'react';
 import './User.css';
 
-type UserProps = {
+/**
+ * @typedef {Object} UserProps
+ */
+export type UserProps = {
     id: number,
     name: string, // Имя пользователя
     text: string, // Текст последнего сообщения
@@ -18,6 +21,7 @@ function dateFormatter(date: number): string {
 /**
  * Элемент списка пользователей чата, выводящий информацию об отдельном пользователе.
  * @class User
+ * @param {UserProps} props
  */
 const User: React.ComponentType<UserProps> = ({
     id,

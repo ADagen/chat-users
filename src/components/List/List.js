@@ -25,6 +25,8 @@ const user = {
 const userList = Array(1000).fill(true).map((_, id) => ({ ...user, id }));
 const userHeight = 50;
 
+const styleObj = { height: `${userHeight * userList.length}px` };
+
 /**
  * Тип пропсов компонента List
  * @typedef {Object} ListProps
@@ -63,7 +65,7 @@ class List extends React.Component<ListProps, ListState> {
     };
 
     /**
-     * Хранит ссылку на верхний контейнер для подписки на события.
+     * Хранит ссылку на верхнюю обёртку
      * @property List#wrapRef
      * @type {?React.ElementRef}
      */
@@ -78,11 +80,33 @@ class List extends React.Component<ListProps, ListState> {
     setWrapRef: React.Ref<'div'> = node => { this.wrapRef = node };
 
     /**
+     * Хранит ссылку на внутренний контейнер
+     * @property List#containerRef
+     * @type {?React.ElementRef}
+     */
+    containerRef: ?React.ElementRef<'div'>;
+
+    /**
+     *
+     * @method List#setContainerRef
+     * @param {React.ElementRef} node
+     * @returns {void}
+     */
+    setContainerRef: React.Ref<'div'> = node => { this.containerRef = node };
+
+    /**
      * Хранит текущее состояние scrollTop
      * @property List#scrollTop
      * @type {number}
      */
     scrollTop: number = 0;
+
+    /**
+     * Хранит id таймера для
+     * @property List#timerPointerDisabled
+     * @type {TimeoutID}
+     */
+    timerPointerDisabled: TimeoutID;
 
     /**
      * Обработчик скролла контейнера внутри враппера
@@ -92,11 +116,33 @@ class List extends React.Component<ListProps, ListState> {
      * @returns {void}
      */
     onScroll = (event: Event): void => {
-        // подключать debounce ради одного использования посчитал излишним
         const target = (event.currentTarget: window.HTMLElement);
+
+        // игнор прокрутки за пределы (напр. на мобильных)
+        if (target.scrollTop < 0) { return }
+
+        // глобально выключу pointer-events для ускорения рендера
+        const { containerRef } = this;
+        if (!containerRef) { return }
+        containerRef.classList.toggle('List-container-scrolling', true);
+        clearTimeout(this.timerPointerDisabled);
+        this.timerPointerDisabled = setTimeout(
+            () => containerRef.classList.toggle('List-container-scrolling', false),
+            300,
+        );
+
+
+
+        // подключать debounce ради одного использования посчитал излишним
         this.scrollTop = target.scrollTop;
         this.setScrollTop();
     };
+
+    shouldComponentUpdate(nextProps: ListProps, nextState: ListState) {
+        const isSameScrollTop = nextState.scrollTop === this.state.scrollTop;
+        const isSameHeight = nextState.height === this.state.height;
+        return isSameScrollTop && isSameHeight;
+    }
 
     /**
      * Метод для установки scrollTop, debounced, вызывается раз в 200 мс.
@@ -107,7 +153,7 @@ class List extends React.Component<ListProps, ListState> {
         const { scrollTop } = this;
         this.setState({ scrollTop });
     }, {
-        wait: 200,
+        wait: 50,
         leading: true,
         trailing: true,
     });
@@ -157,7 +203,7 @@ class List extends React.Component<ListProps, ListState> {
     render() {
         const { height, scrollTop } = this.state;
         const { className } = this.props;
-        console.log(`[render], height=${height}, scrollTop=${scrollTop}`);
+        //console.log(`[render], height=${height}, scrollTop=${scrollTop}`);
 
         // первое и последнее видимое во вьюпорте сообщение
         const firstVisibleMessage = Math.floor(scrollTop / 50);
@@ -166,11 +212,11 @@ class List extends React.Component<ListProps, ListState> {
         // первое и последнее сообщение, которое надо отрендерить
         const startMsgId = Math.max(0, firstVisibleMessage - RESERVE);
         const endMsgId = Math.min(userList.length, lastVisibleMessage + RESERVE);
-        console.log('msg to render:', startMsgId, endMsgId);
+        //console.log('msg to render:', startMsgId, endMsgId);
 
         return (
             <div className={cx('List-wrap', className)} ref={this.setWrapRef}>
-                <div className="List-container" style={{ height: `${userHeight * userList.length}px` }}>
+                <div className="List-container" style={styleObj} ref={this.setContainerRef}>
                     {userList.slice(startMsgId, endMsgId).map(user => (
                         <User key={user.id} {...user} />
                     ))}

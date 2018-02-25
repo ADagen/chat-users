@@ -2,10 +2,15 @@
     max-height: 100vh;
     overflow-y: scroll;
     width: 500px;
+    will-change: transform;
 }
 
 .List-container {
     width: 100%;
     overflow-x: hidden;
     position: relative;
+}
+
+.List-container-scrolling {
+    pointer-events: none;
 }
