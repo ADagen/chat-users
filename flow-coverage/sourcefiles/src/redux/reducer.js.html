@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><link rel="stylesheet" href="../../../assets/semantic.min.css"/><link rel="stylesheet" href="../../../assets/codemirror.css"/><link rel="stylesheet" href="../../../assets/flow-highlight-source.css"/><link rel="stylesheet" href="../../../assets/flow-coverage-report.css"/><link rel="stylesheet" href="../../../assets/codemirror-simplescrollbars-addon.css"/><script src="../../../assets/jquery-3.1.0.min.js"></script><script src="../../../assets/semantic.min.js"></script><script src="../../../assets/semantic-tablesort.js"></script><script src="../../../assets/codemirror.js"></script><script src="../../../assets/codemirror-javascript-mode.js"></script><script src="../../../assets/codemirror-annotatescrollbar-addon.js"></script><script src="../../../assets/codemirror-simplescrollbars-addon.js"></script><script src="../../../assets/flow-highlight-source.js"></script><script src="../../../assets/index.js"></script><style>
+.ui .CodeMirror {
+  border: 1px solid rgba(34,36,38,.15);
+  height: auto;
+}
+</style></head><body><div class="ui grid container"><div class="row"><div class="twelve wide column"><h2 class="ui header"><a href="../../../index.html" id="link-to-summary">Flow Coverage Report</a></h2></div></div><div class="row"><table class="ui small celled unstackable table"><thead><tr><th class="sorted ascending">Filename</th><th>Annotation</th><th>Percent</th><th>Total</th><th>Covered</th><th>Uncovered</th></tr></thead><tbody><tr class="positive"><td class="">src/redux/reducer.js</td><td> @flow </td><td class=""><span>98 %</span></td><td> 126 </td><td> 124 </td><td> 2 </td></tr></tbody></table></div><div class="row ui one column centered grid"><div class="column" style="text-align:left;"><div class="row"><div class="ui form"><div class="fields"><div class="sixteen wide inline field"><select class="ui search dropdown uncovered-locations"><option value="">Uncovered Locations</option><option value="19">Start: 19,16 - End: 19,28</option><option value="19">Start: 19,16 - End: 97,2</option></select></div><div class="four wide inline field"><select class="ui search dropdown syntax-highlighting"><option value="es">ES6/ES7</option><option value="js">JavaScript</option><option value="no">None</option></select></div></div></div></div><textarea readonly="" id="file-content">// @flow
+
+import { createReducer } from &#x27;redux-create-reducer&#x27;;
+import actionTypes from &#x27;./actionTypes&#x27;;
+import type { ChatAction } from &#x27;./actions&#x27;;
+
+/**
+ * @typedef {Object} StoreState
+ * @property {Array.&lt;any&gt;} users - список пользователей
+ */
+type StoreState = {
+    users: Array&lt;UserData&gt;,
+}
+
+const initialState: StoreState = {
+    users: [],
+};
+
+export default createReducer(initialState, {
+
+    /**
+     * Редьюсер на событие начальной загрузки списка пользователей
+     */
+    [actionTypes.LOAD_USERS](
+        state: StoreState,
+        action: ChatAction&lt;Array&lt;UserData&gt;&gt;,
+    ): $Shape&lt;StoreState&gt; {
+        const users = action.payload;
+
+        // начальная сортировка, чтобы при получении данных можно было вставить
+        // нового пользователя с наименьшими затратами времени/памяти
+        users.sort((a: UserData, b: UserData) =&gt;
+            b.lastTimestamp - a.lastTimestamp
+        );
+
+        return { users };
+    },
+
+    /**
+     * Редьюсер на обновление одного конкретного пользователя
+     */
+    [actionTypes.UPDATE_USER](
+        state: StoreState,
+        action: ChatAction&lt;UserData&gt;,
+    ): $Shape&lt;StoreState&gt; {
+        const users = state.users.slice();
+        const updatedUser = action.payload;
+        let unread: number = 0;
+
+        // Проверка, что пользователь уже есть.
+        // Если такой id есть, то вырезать его оттуда,
+        // сохранив непрочитанные сообщения.
+        const alreadyExists = users.findIndex(user =&gt; user.id === updatedUser.id);
+        if (alreadyExists &gt;= 0) {
+            const user = users.splice(alreadyExists, 1)[0];
+            unread = user.unread;
+        }
+
+        // Вставка.
+        // Пройтись по массиву и определить ближайшее сообщение,
+        // для которого время в новом сообщении будет новее.
+        // Мы не можем просто вставить в начало, так как сеть/сервер могут выдавать любые задержки,
+        // из-за чего сообщения могут приходить в произвольном порядке.
+        let targetIndex: number = 0;
+        users.every((user, index) =&gt; {
+            const isUpdatedUserOlder = updatedUser.lastTimestamp &gt; user.lastTimestamp;
+            if (!isUpdatedUserOlder) { targetIndex = index }
+            return isUpdatedUserOlder;
+        });
+        // Обновить непрочитанные сообщения и вставить в массив
+        unread += 1;
+        const next = Object.assign({}, updatedUser, { unread });
+        users.splice(targetIndex, 0, next);
+
+        return { users };
+    },
+
+    /**
+     * Установка сообщения прочитанным
+     */
+    [actionTypes.MARK_AS_READ](
+        state: StoreState,
+        action: ChatAction&lt;number&gt;,
+    ): $Shape&lt;StoreState&gt; {
+        const users = state.users.slice();
+        const id = action.payload;
+
+        const userToRead = users.find(user =&gt; user.id === id);
+        if (userToRead) {
+            userToRead.unread = 0;
+            return { users };
+        }
+
+        return state;
+    }
+
+});</textarea></div></div><div class="row centered"><footer>Flow Coverage Report generated by<a href="https://flowtype.org"> flow </a>and<a href="https://github.com/rpl/flow-coverage-report"> flow-coverage-report </a>at Mon Feb 26 2018 11:15:52 GMT+0200 (EET)</footer></div></div><pre id="file-coverage-data" style="display:none;">{&quot;expressions&quot;:{&quot;covered_count&quot;:124,&quot;uncovered_count&quot;:2,&quot;uncovered_locs&quot;:[{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/redux/reducer.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:19,&quot;column&quot;:16,&quot;offset&quot;:367},&quot;end&quot;:{&quot;line&quot;:19,&quot;column&quot;:28,&quot;offset&quot;:380}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/redux/reducer.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:19,&quot;column&quot;:16,&quot;offset&quot;:367},&quot;end&quot;:{&quot;line&quot;:97,&quot;column&quot;:2,&quot;offset&quot;:2908}}]},&quot;filename&quot;:&quot;src/redux/reducer.js&quot;,&quot;annotation&quot;:&quot;flow&quot;,&quot;percent&quot;:98}</pre></body></html>

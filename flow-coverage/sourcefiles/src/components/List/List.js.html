@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><link rel="stylesheet" href="../../../../assets/semantic.min.css"/><link rel="stylesheet" href="../../../../assets/codemirror.css"/><link rel="stylesheet" href="../../../../assets/flow-highlight-source.css"/><link rel="stylesheet" href="../../../../assets/flow-coverage-report.css"/><link rel="stylesheet" href="../../../../assets/codemirror-simplescrollbars-addon.css"/><script src="../../../../assets/jquery-3.1.0.min.js"></script><script src="../../../../assets/semantic.min.js"></script><script src="../../../../assets/semantic-tablesort.js"></script><script src="../../../../assets/codemirror.js"></script><script src="../../../../assets/codemirror-javascript-mode.js"></script><script src="../../../../assets/codemirror-annotatescrollbar-addon.js"></script><script src="../../../../assets/codemirror-simplescrollbars-addon.js"></script><script src="../../../../assets/flow-highlight-source.js"></script><script src="../../../../assets/index.js"></script><style>
+.ui .CodeMirror {
+  border: 1px solid rgba(34,36,38,.15);
+  height: auto;
+}
+</style></head><body><div class="ui grid container"><div class="row"><div class="twelve wide column"><h2 class="ui header"><a href="../../../../index.html" id="link-to-summary">Flow Coverage Report</a></h2></div></div><div class="row"><table class="ui small celled unstackable table"><thead><tr><th class="sorted ascending">Filename</th><th>Annotation</th><th>Percent</th><th>Total</th><th>Covered</th><th>Uncovered</th></tr></thead><tbody><tr class="positive"><td class="">src/components/List/List.js</td><td> @flow </td><td class=""><span>95 %</span></td><td> 240 </td><td> 228 </td><td> 12 </td></tr></tbody></table></div><div class="row ui one column centered grid"><div class="column" style="text-align:left;"><div class="row"><div class="ui form"><div class="fields"><div class="sixteen wide inline field"><select class="ui search dropdown uncovered-locations"><option value="">Uncovered Locations</option><option value="146">Start: 146,13 - End: 146,28</option><option value="158">Start: 158,9 - End: 158,41</option><option value="158">Start: 158,26 - End: 158,41</option><option value="161">Start: 161,9 - End: 161,27</option><option value="184">Start: 184,20 - End: 184,27</option><option value="184">Start: 184,20 - End: 195,6</option><option value="218">Start: 218,10 - End: 218,42</option><option value="218">Start: 218,14 - End: 218,27</option><option value="224">Start: 224,13 - End: 224,19</option><option value="224">Start: 224,13 - End: 224,41</option><option value="290">Start: 290,29 - End: 290,30</option><option value="290">Start: 290,29 - End: 290,54</option></select></div><div class="four wide inline field"><select class="ui search dropdown syntax-highlighting"><option value="es">ES6/ES7</option><option value="js">JavaScript</option><option value="no">None</option></select></div></div></div></div><textarea readonly="" id="file-content">// @flow
+
+import * as React from &#x27;react&#x27;;
+import ResizeObserver from &#x27;resize-observer-polyfill&#x27;;
+import cx from &#x27;classnames&#x27;;
+import debounce from &#x27;lodash.debounce&#x27;
+import User from &#x27;../User&#x27;;
+import { USER_HEIGHT } from &#x27;../../constants&#x27;;
+import &#x27;./List.css&#x27;;
+
+/**
+ * Css-класс, который будет ставится во время скролла
+ * @type {string}
+ */
+const SCROLLING: string = &#x27;List-container-scrolling&#x27;;
+
+/**
+ * Запас элементов, которые будут рендерится по-умолчанию за пределами вьюпорта.
+ * Этот запас нужен т.к. браузер выдаёт событие скролла уже после самой прокрутки.
+ * Из-за чего получается &quot;проскальзывание&quot; элементов.
+ * Текущая скорость проскальзывания лежит в `List#state.rowSlipRatio`
+ * При высокой скорости прокрутки запас элементов в направлении прокрутки увеличивается.
+ * @constant List.RESERVE
+ * @type {number}
+ */
+const RESERVE: number = 4;
+
+/**
+ * Cколько элементов будет рендерится максимум. Ограничение нужно,
+ * т.к. в некоторых случаях &quot;проскальзывает&quot; слишком много элементов,
+ * в результате вместо ускорения обработки списка получается замедление.
+ * @constant List.MAX_RESERVE
+ * @type {number}
+ */
+const MAX_RESERVE: number = 100;
+
+
+/**
+ * Тип внешних пропсов (публичных) компонента List
+ * @typedef {Object} ListProps
+ * @property {string} [className] - передаваемый извне className
+ */
+export type ListOuterProps = {
+    className?: string,
+}
+/**
+ * Тип внутренних пропсов (между контейнером и компонентом) компонента List
+ * @typedef {Object} ListProps
+ * @property {string} [className] - передаваемый извне className
+ */
+export type ListProps = ListOuterProps &amp; {
+    users: Array&lt;any&gt;,
+    length: number,
+    styleObj: {
+        height: string,
+    },
+}
+
+/**
+ * Тип стейта компонента List.
+ * rowSlipRatio зависит от текущей скорости прокрутки.
+ * @typedef {Object} ListState
+ * @property {number} rowSlipRatio - запас элементов, которые будут рендерится за пределами вьюпорта
+ * @property {number} height - высота обёртки (т.е. вьюпорт List)
+ * @property {number} scrollTop - смещение внутреннего контейнера по вертикали
+ */
+export type ListState = {
+    rowSlipRatio: number,
+    height: number,
+    scrollTop: number,
+}
+
+/**
+ * Компонент для поддержки списка пользователей.
+ * Реализует т.н. виртуальный скроллинг, сам следит за высотой своего элемента.
+ * @class List
+ * @param {ListProps} props
+ */
+class List extends React.Component&lt;ListProps, ListState&gt; {
+
+    /**
+     * @property List#state
+     * @type {ListState}
+     */
+    state = {
+        rowSlipRatio: 4,
+        height: 0,
+        scrollTop: 0,
+    };
+
+    /**
+     * Хранит ссылку на верхнюю обёртку
+     * @property List#wrapRef
+     * @type {?React.ElementRef}
+     */
+    wrapRef: ?React.ElementRef&lt;&#x27;div&#x27;&gt;;
+
+    /**
+     *
+     * @method List#setWrapRef
+     * @param {React.ElementRef} node
+     * @returns {void}
+     */
+    setWrapRef: React.Ref&lt;&#x27;div&#x27;&gt; = node =&gt; { this.wrapRef = node };
+
+    /**
+     * Хранит ссылку на внутренний контейнер
+     * @property List#containerRef
+     * @type {?React.ElementRef}
+     */
+    containerRef: ?React.ElementRef&lt;&#x27;div&#x27;&gt;;
+
+    /**
+     *
+     * @method List#setContainerRef
+     * @param {React.ElementRef} node
+     * @returns {void}
+     */
+    setContainerRef: React.Ref&lt;&#x27;div&#x27;&gt; = node =&gt; { this.containerRef = node };
+
+    /**
+     * Хранит текущее состояние scrollTop
+     * @property List#scrollTop
+     * @type {number}
+     */
+    scrollTop: number = 0;
+
+    /**
+     * Хранит id таймера для
+     * @property List#timerPointerDisabled
+     * @type {TimeoutID}
+     */
+    timerPointerDisabled: TimeoutID;
+
+    /**
+     * Обработчик скролла контейнера внутри враппера
+     * TODO: рассмотреть вариант через rAF вместо setTimeout/debounce
+     * @method List#onScroll
+     * @param {Event} event
+     * @returns {void}
+     */
+    onScroll = (event: Event): void =&gt; {
+        const target = (event.currentTarget: window.HTMLElement);
+
+        // игнор прокрутки за пределы (напр. на мобильных)
+        if (target.scrollTop &lt; 0) { return }
+
+        // глобально выключу pointer-events для ускорения рендера браузерного движка
+        const { containerRef } = this;
+        if (!containerRef) { return }
+        containerRef.classList.add(SCROLLING);
+        clearTimeout(this.timerPointerDisabled);
+        this.timerPointerDisabled = setTimeout(
+            () =&gt; containerRef.classList.remove(SCROLLING),
+            500,
+        );
+
+        this.scrollTop = target.scrollTop;
+
+        // версия с дебаунсом
+        this.setScrollTop();
+    };
+
+    /**
+     * Перерендера DOM-дерева не будет, но лишней реконсиляции этим получится избежать
+     * @method List#shouldComponentUpdate
+     * @private
+     * @param {ListProps} nextProps
+     * @param {ListState} nextState
+     * @returns {boolean}
+     */
+    shouldComponentUpdate(nextProps: ListProps, nextState: ListState) {
+        // const isDirtyScrollTop = nextState.scrollTop !== this.state.scrollTop;
+        // const isDirtyHeight = nextState.height !== this.state.height;
+        // return isDirtyScrollTop || isDirtyHeight;
+        return true;
+    }
+
+    /**
+     * Метод для установки scrollTop, debounced, вызывается раз в 50 мс.
+     * @method List#setScrollTop
+     * @returns {void}
+     */
+    setScrollTop = debounce(() =&gt; {
+        const { scrollTop } = this;
+        // scrollToRowCoeff - это эмпирически подобранное число,
+        // показывает зависимость величины проскальзывания прокрутки от кол-ва запасных элементов.
+        const scrollToRowCoeff = 40;
+        const rowSlipRatio = Math.round((scrollTop - this.state.scrollTop) / scrollToRowCoeff);
+        this.setState({ scrollTop, rowSlipRatio });
+    }, {
+        wait: 50,
+        leading: true,
+        trailing: true,
+    });
+
+    /**
+     * Обработчик ресайза враппера
+     * @method List#onResize
+     * @param {ResizeObserverEntries} entries
+     *      @param {ResizeObserverEntry} entries[0] - wrap
+     * @returns {void}
+     */
+    onResize = ([wrap]: ResizeObserverEntries): void =&gt; {
+        // Беру сразу нулевой элемент, чтобы не проверять на соответствие,
+        // так как ResizeObserver для каждого инстанса List свой.
+        // В более сложном случае тут должна быть проверка `wrap.target === this.wrapRef`
+        const cr: DOMRectReadOnly = wrap.contentRect;
+        const { height } = cr;
+        this.setState({ height });
+    };
+
+    /**
+     * Инстанс обсервера изменения размера
+     * @property {List#ro}
+     * @type {ResizeObserver}
+     */
+    ro = new ResizeObserver(this.onResize);
+
+    componentDidMount() {
+        if (this.wrapRef) {
+            // стандартный реактовский onScroll не подошёл, т.к. не поддерживает passive: true
+            this.wrapRef.addEventListener(&#x27;scroll&#x27;, this.onScroll, { passive: true });
+            this.ro.observe(this.wrapRef);
+        } else {
+            const message = &#x27;всё пропало&#x27;;
+            // тут Raven.captureMessage(&#x27;message&#x27;, { tags: {} })
+            console.error(message);
+        }
+
+    }
+
+    componentWillUnmount() {
+        if (this.wrapRef) {
+            this.wrapRef.removeEventListener(&#x27;scroll&#x27;, this.onScroll);
+        }
+    }
+
+    componentDidCatch(error: Error, tags: Object) {
+        // тут Raven.captureException(error, { tags });
+        console.error(error);
+    }
+
+    /**
+     *
+     * @method List#renderElements
+     * @private
+     * @param {number} start начальный индекс для подмассива
+     * @param {number} end конечный индекс для подмассива
+     * @returns {React.Element}
+     */
+    renderElements(start: number, end: number) {
+        const { users } = this.props;
+
+        function getUserElement(user: UserData, index: number) {
+            const globalIndex: number = start + index;
+            return (
+                &lt;User
+                    key={user.id}
+                    globalIndex={globalIndex}
+                    {...user}
+                /&gt;
+            )
+        }
+
+        return users.slice(start, end).map(getUserElement);
+    }
+
+    render() {
+        const { height, scrollTop, rowSlipRatio } = this.state;
+        const { className, styleObj, length } = this.props;
+        // console.log(`[render], height=${height}, scrollTop=${scrollTop}`);
+
+        // первое и последнее видимое во вьюпорте сообщение
+        const firstVisibleMessage = Math.floor(scrollTop / USER_HEIGHT);
+        const lastVisibleMessage = Math.ceil((scrollTop + height) / USER_HEIGHT);
+
+        // резерв сообщений сверх и снизу
+        // напр. при большой скорости вверх надо отрендерить больше сообщений сверху
+        const normalizedSlip = Math.min(RESERVE + Math.abs(rowSlipRatio), MAX_RESERVE);
+        const topReserve = rowSlipRatio &lt; 0 ? normalizedSlip : RESERVE;
+        const bottomReserve = rowSlipRatio &gt; 0 ? normalizedSlip : RESERVE;
+
+        // первое и последнее сообщение, которое надо отрендерить
+        const startIndex = Math.max(0, firstVisibleMessage - topReserve);
+        const endIndex = Math.min(length, lastVisibleMessage + bottomReserve);
+        // console.log(&#x27;msg to render:&#x27;, startIndex, endIndex);
+
+        return (
+            &lt;div className={cx(&#x27;List-wrap&#x27;, className)} ref={this.setWrapRef}&gt;
+                &lt;div className=&quot;List-container&quot; style={styleObj} ref={this.setContainerRef}&gt;
+                    {this.renderElements(startIndex, endIndex)}
+                &lt;/div&gt;
+            &lt;/div&gt;
+        )
+    }
+}
+
+export default List;
+</textarea></div></div><div class="row centered"><footer>Flow Coverage Report generated by<a href="https://flowtype.org"> flow </a>and<a href="https://github.com/rpl/flow-coverage-report"> flow-coverage-report </a>at Mon Feb 26 2018 11:15:52 GMT+0200 (EET)</footer></div></div><pre id="file-coverage-data" style="display:none;">{&quot;expressions&quot;:{&quot;covered_count&quot;:228,&quot;uncovered_count&quot;:12,&quot;uncovered_locs&quot;:[{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:146,&quot;column&quot;:13,&quot;offset&quot;:3954},&quot;end&quot;:{&quot;line&quot;:146,&quot;column&quot;:28,&quot;offset&quot;:3970}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:158,&quot;column&quot;:9,&quot;offset&quot;:4391},&quot;end&quot;:{&quot;line&quot;:158,&quot;column&quot;:41,&quot;offset&quot;:4424}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:158,&quot;column&quot;:26,&quot;offset&quot;:4408},&quot;end&quot;:{&quot;line&quot;:158,&quot;column&quot;:41,&quot;offset&quot;:4424}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:161,&quot;column&quot;:9,&quot;offset&quot;:4465},&quot;end&quot;:{&quot;line&quot;:161,&quot;column&quot;:27,&quot;offset&quot;:4484}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:184,&quot;column&quot;:20,&quot;offset&quot;:5225},&quot;end&quot;:{&quot;line&quot;:184,&quot;column&quot;:27,&quot;offset&quot;:5233}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:184,&quot;column&quot;:20,&quot;offset&quot;:5225},&quot;end&quot;:{&quot;line&quot;:195,&quot;column&quot;:6,&quot;offset&quot;:5707}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:218,&quot;column&quot;:10,&quot;offset&quot;:6460},&quot;end&quot;:{&quot;line&quot;:218,&quot;column&quot;:42,&quot;offset&quot;:6493}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:218,&quot;column&quot;:14,&quot;offset&quot;:6464},&quot;end&quot;:{&quot;line&quot;:218,&quot;column&quot;:27,&quot;offset&quot;:6478}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:224,&quot;column&quot;:13,&quot;offset&quot;:6744},&quot;end&quot;:{&quot;line&quot;:224,&quot;column&quot;:19,&quot;offset&quot;:6751}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:224,&quot;column&quot;:13,&quot;offset&quot;:6744},&quot;end&quot;:{&quot;line&quot;:224,&quot;column&quot;:41,&quot;offset&quot;:6773}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:290,&quot;column&quot;:29,&quot;offset&quot;:9067},&quot;end&quot;:{&quot;line&quot;:290,&quot;column&quot;:30,&quot;offset&quot;:9069}},{&quot;source&quot;:&quot;/home/andrey/projects/chat-users/src/components/List/List.js&quot;,&quot;type&quot;:&quot;SourceFile&quot;,&quot;start&quot;:{&quot;line&quot;:290,&quot;column&quot;:29,&quot;offset&quot;:9067},&quot;end&quot;:{&quot;line&quot;:290,&quot;column&quot;:54,&quot;offset&quot;:9093}}]},&quot;filename&quot;:&quot;src/components/List/List.js&quot;,&quot;annotation&quot;:&quot;flow&quot;,&quot;percent&quot;:95}</pre></body></html>
