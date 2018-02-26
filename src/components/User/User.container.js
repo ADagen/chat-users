@@ -1,12 +1,25 @@
 // @flow
 
-import { pure, compose } from 'recompose';
+import { compose, withHandlers } from 'recompose';
+import { connect } from 'react-redux';
 import type { HOC } from 'recompose';
 import User from './User';
-import type { UserProps } from './User';
+import type { UserInnerProps, UserOuterProps } from './User';
+import { markAsRead } from '../../redux/actions';
 
-const enhance: HOC<UserProps, UserProps> = compose(
-    pure,
+const mapDispatch: $Shape<UserInnerProps> = {
+    markAsRead,
+};
+
+const enhance: HOC<UserInnerProps, UserOuterProps> = compose(
+    connect(null, mapDispatch),
+    withHandlers({
+        read: ({ id, markAsRead, unread }: UserInnerProps) => () => {
+            if (unread > 0) {
+                markAsRead(id);
+            }
+        },
+    }),
 );
 
 export default enhance(User);

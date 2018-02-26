@@ -8,9 +8,9 @@
 <body>
     <aside>
         Новое сообщение от...
-        <button>...юзера, который ещё не в списке</button>
-        <button>...одного из последних 10 собеседников</button>
-        <button>...случайного пользователя</button>
+        <button onclick="fromNewUser(this)">...юзера, который ещё не в списке</button>
+        <button onclick="fromRecent(this)">...одного из последних 10 собеседников</button>
+        <button onclick="fromRandom(this)">...случайного пользователя</button>
     </aside>
     <div id="root"></div>
 </body>

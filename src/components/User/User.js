@@ -2,43 +2,53 @@
 
 import * as React from 'react';
 import './User.css';
+import { USER_HEIGHT } from '../../constants';
+import { dateFormatter } from '../../utils/formatters';
 
 /**
- * @typedef {Object} UserProps
+ * @typedef {UserData} UserOuterProps
  */
-export type UserProps = {
-    id: number,
-    name: string, // Имя пользователя
-    text: string, // Текст последнего сообщения
-    date: number, // Дата последнего сообщения
-    unread: number, // Кол-во непрочитанных сообщений
+export type UserOuterProps = UserData & {
+    globalIndex: number;
 }
 
-function dateFormatter(date: number): string {
-    return new Date(date).toLocaleString();
+/**
+ * @typedef {UserOuterProps} UserInnerProps
+ */
+export type UserInnerProps = UserOuterProps & {
+    markAsRead: (id: number) => any,
+    read: void => void,
 }
 
 /**
  * Элемент списка пользователей чата, выводящий информацию об отдельном пользователе.
  * @class User
- * @param {UserProps} props
+ * @param {UserInnerProps} props
  */
-const User: React.ComponentType<UserProps> = ({
+const User: React.ComponentType<UserInnerProps> = ({
+    globalIndex,
     id,
     name,
-    text,
-    date,
+    lastMessage,
+    lastTimestamp,
     unread,
-}) => (
-    <div className="User-root" style={{ top: id * 50 }}>
-        <div className="User-row">
-            <span className="User-name">{id}: {name}</span>, непрочитано: {unread}
+    read,
+}) => {
+    const top: number = globalIndex * USER_HEIGHT;
+    const zIndex: number = 1e6 - globalIndex;
+    const style = { top, zIndex };
+    const unreadText = unread ? `, непрочитано: ${unread}` : null;
+    return (
+        <div className="User-root" style={style} onClick={read}>
+            <div className="User-row">
+                <span className="User-name">{name}</span>{unreadText}
+            </div>
+            <div className="User-row">
+                <div className="User-date">{dateFormatter(lastTimestamp)}:&nbsp;</div>
+                <div className="User-text">{lastMessage}</div>
+            </div>
         </div>
-        <div className="User-row">
-            <div className="User-date">{dateFormatter(date)}:&nbsp;</div>
-            <div className="User-text">{text}</div>
-        </div>
-    </div>
-);
+    )
+};
 
 export default User;

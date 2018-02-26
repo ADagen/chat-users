@@ -1,5 +1,5 @@
 {
   "name": "List",
-  "main": "./List.js",
+  "main": "./List.container.js",
   "private": true
 }

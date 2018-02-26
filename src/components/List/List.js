@@ -5,44 +5,67 @@ import ResizeObserver from 'resize-observer-polyfill';
 import cx from 'classnames';
 import debounce from 'lodash.debounce'
 import User from '../User';
+import { USER_HEIGHT } from '../../constants';
 import './List.css';
 
 /**
- * Запас сообщений, которые будут рендерится за пределами вьюпорта.
- * Подбирается эмрирически.
+ * Css-класс, который будет ставится во время скролла
+ * @type {string}
+ */
+const SCROLLING: string = 'List-container-scrolling';
+
+/**
+ * Запас элементов, которые будут рендерится по-умолчанию за пределами вьюпорта.
+ * Этот запас нужен т.к. браузер выдаёт событие скролла уже после самой прокрутки.
+ * Из-за чего получается "проскальзывание" элементов.
+ * Текущая скорость проскальзывания лежит в `List#state.rowSlipRatio`
+ * При высокой скорости прокрутки запас элементов в направлении прокрутки увеличивается.
  * @constant List.RESERVE
  * @type {number}
  */
 const RESERVE: number = 4;
 
-const user = {
-    name: 'ТестИмя',
-    text: 'Съешь ещё этих мягких французских булочек, да выпей чаю',
-    date: Date.now(),
-    unread: 8,
-};
+/**
+ * Cколько элементов будет рендерится максимум. Ограничение нужно,
+ * т.к. в некоторых случаях "проскальзывает" слишком много элементов,
+ * в результате вместо ускорения обработки списка получается замедление.
+ * @constant List.MAX_RESERVE
+ * @type {number}
+ */
+const MAX_RESERVE: number = 100;
 
-const userList = Array(1000).fill(true).map((_, id) => ({ ...user, id }));
-const userHeight = 50;
-
-const styleObj = { height: `${userHeight * userList.length}px` };
 
 /**
- * Тип пропсов компонента List
+ * Тип внешних пропсов (публичных) компонента List
  * @typedef {Object} ListProps
  * @property {string} [className] - передаваемый извне className
  */
-type ListProps = {
+export type ListOuterProps = {
     className?: string,
+}
+/**
+ * Тип внутренних пропсов (между контейнером и компонентом) компонента List
+ * @typedef {Object} ListProps
+ * @property {string} [className] - передаваемый извне className
+ */
+export type ListProps = ListOuterProps & {
+    users: Array<any>,
+    length: number,
+    styleObj: {
+        height: string,
+    },
 }
 
 /**
- * Тип стейта компонента List
+ * Тип стейта компонента List.
+ * rowSlipRatio зависит от текущей скорости прокрутки.
  * @typedef {Object} ListState
+ * @property {number} rowSlipRatio - запас элементов, которые будут рендерится за пределами вьюпорта
  * @property {number} height - высота обёртки (т.е. вьюпорт List)
  * @property {number} scrollTop - смещение внутреннего контейнера по вертикали
  */
-type ListState = {
+export type ListState = {
+    rowSlipRatio: number,
     height: number,
     scrollTop: number,
 }
@@ -60,6 +83,7 @@ class List extends React.Component<ListProps, ListState> {
      * @type {ListState}
      */
     state = {
+        rowSlipRatio: 4,
         height: 0,
         scrollTop: 0,
     };
@@ -121,37 +145,49 @@ class List extends React.Component<ListProps, ListState> {
         // игнор прокрутки за пределы (напр. на мобильных)
         if (target.scrollTop < 0) { return }
 
-        // глобально выключу pointer-events для ускорения рендера
+        // глобально выключу pointer-events для ускорения рендера браузерного движка
         const { containerRef } = this;
         if (!containerRef) { return }
-        containerRef.classList.toggle('List-container-scrolling', true);
+        containerRef.classList.add(SCROLLING);
         clearTimeout(this.timerPointerDisabled);
         this.timerPointerDisabled = setTimeout(
-            () => containerRef.classList.toggle('List-container-scrolling', false),
-            300,
+            () => containerRef.classList.remove(SCROLLING),
+            500,
         );
 
-
-
-        // подключать debounce ради одного использования посчитал излишним
         this.scrollTop = target.scrollTop;
+
+        // версия с дебаунсом
         this.setScrollTop();
     };
 
+    /**
+     * Перерендера DOM-дерева не будет, но лишней реконсиляции этим получится избежать
+     * @method List#shouldComponentUpdate
+     * @private
+     * @param {ListProps} nextProps
+     * @param {ListState} nextState
+     * @returns {boolean}
+     */
     shouldComponentUpdate(nextProps: ListProps, nextState: ListState) {
-        const isSameScrollTop = nextState.scrollTop === this.state.scrollTop;
-        const isSameHeight = nextState.height === this.state.height;
-        return isSameScrollTop && isSameHeight;
+        // const isDirtyScrollTop = nextState.scrollTop !== this.state.scrollTop;
+        // const isDirtyHeight = nextState.height !== this.state.height;
+        // return isDirtyScrollTop || isDirtyHeight;
+        return true;
     }
 
     /**
-     * Метод для установки scrollTop, debounced, вызывается раз в 200 мс.
+     * Метод для установки scrollTop, debounced, вызывается раз в 50 мс.
      * @method List#setScrollTop
      * @returns {void}
      */
     setScrollTop = debounce(() => {
         const { scrollTop } = this;
-        this.setState({ scrollTop });
+        // scrollToRowCoeff - это эмпирически подобранное число,
+        // показывает зависимость величины проскальзывания прокрутки от кол-ва запасных элементов.
+        const scrollToRowCoeff = 40;
+        const rowSlipRatio = Math.round((scrollTop - this.state.scrollTop) / scrollToRowCoeff);
+        this.setState({ scrollTop, rowSlipRatio });
     }, {
         wait: 50,
         leading: true,
@@ -174,6 +210,11 @@ class List extends React.Component<ListProps, ListState> {
         this.setState({ height });
     };
 
+    /**
+     * Инстанс обсервера изменения размера
+     * @property {List#ro}
+     * @type {ResizeObserver}
+     */
     ro = new ResizeObserver(this.onResize);
 
     componentDidMount() {
@@ -200,26 +241,55 @@ class List extends React.Component<ListProps, ListState> {
         console.error(error);
     }
 
+    /**
+     *
+     * @method List#renderElements
+     * @private
+     * @param {number} start начальный индекс для подмассива
+     * @param {number} end конечный индекс для подмассива
+     * @returns {React.Element}
+     */
+    renderElements(start: number, end: number) {
+        const { users } = this.props;
+
+        function getUserElement(user: UserData, index: number) {
+            const globalIndex: number = start + index;
+            return (
+                <User
+                    key={user.id}
+                    globalIndex={globalIndex}
+                    {...user}
+                />
+            )
+        }
+
+        return users.slice(start, end).map(getUserElement);
+    }
+
     render() {
-        const { height, scrollTop } = this.state;
-        const { className } = this.props;
-        //console.log(`[render], height=${height}, scrollTop=${scrollTop}`);
+        const { height, scrollTop, rowSlipRatio } = this.state;
+        const { className, styleObj, length } = this.props;
+        // console.log(`[render], height=${height}, scrollTop=${scrollTop}`);
 
         // первое и последнее видимое во вьюпорте сообщение
-        const firstVisibleMessage = Math.floor(scrollTop / 50);
-        const lastVisibleMessage = Math.ceil((scrollTop + height) / 50);
+        const firstVisibleMessage = Math.floor(scrollTop / USER_HEIGHT);
+        const lastVisibleMessage = Math.ceil((scrollTop + height) / USER_HEIGHT);
+
+        // резерв сообщений сверх и снизу
+        // напр. при большой скорости вверх надо отрендерить больше сообщений сверху
+        const normalizedSlip = Math.min(RESERVE + Math.abs(rowSlipRatio), MAX_RESERVE);
+        const topReserve = rowSlipRatio < 0 ? normalizedSlip : RESERVE;
+        const bottomReserve = rowSlipRatio > 0 ? normalizedSlip : RESERVE;
 
         // первое и последнее сообщение, которое надо отрендерить
-        const startMsgId = Math.max(0, firstVisibleMessage - RESERVE);
-        const endMsgId = Math.min(userList.length, lastVisibleMessage + RESERVE);
-        //console.log('msg to render:', startMsgId, endMsgId);
+        const startIndex = Math.max(0, firstVisibleMessage - topReserve);
+        const endIndex = Math.min(length, lastVisibleMessage + bottomReserve);
+        // console.log('msg to render:', startIndex, endIndex);
 
         return (
             <div className={cx('List-wrap', className)} ref={this.setWrapRef}>
                 <div className="List-container" style={styleObj} ref={this.setContainerRef}>
-                    {userList.slice(startMsgId, endMsgId).map(user => (
-                        <User key={user.id} {...user} />
-                    ))}
+                    {this.renderElements(startIndex, endIndex)}
                 </div>
             </div>
         )
