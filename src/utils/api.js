@@ -2,8 +2,8 @@
 
 import '../server-mock';
 import store from '../redux/configStore';
-import { loadUsers, updateUser } from "../redux/actions";
-import { WS_SERVER_URL } from "../constants";
+import { loadUsers, updateUser } from '../redux/actions';
+import { WS_SERVER_URL } from '../constants';
 
 const operationToActionMap = {
     INITIAL: loadUsers,

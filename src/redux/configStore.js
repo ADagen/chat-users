@@ -12,4 +12,4 @@ const store = createStore(
     enhance,
 );
 
-export default store
+export default store;

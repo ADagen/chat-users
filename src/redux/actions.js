@@ -37,6 +37,14 @@ export const updateUser = (user: UserData): ChatAction<UserData> => ({
 
 /**
  * Пользователь помечает сообщения собеседника id прочитанными
+ *
+ * TODO: работа с апи-утилитами - это сайд-эффект. Вызов `socketClient.send` уничтожает чистоту функции,
+ * а actionCreators должны быть чистыми функциями по большому кол-ву причин (https://github.com/reactjs/redux/issues/1171),
+ * одна из которых и самая важная, на мой взгляд - масштабирование.
+ * При разрастании бизнес-логики всё равно потребуются какие-либо инструменты для организации потока управления.
+ * Наиболее удобный инструмент для этого из экосистемы реакта - `redux-saga`.
+ * Использую `redux-saga` во всех проектах на связке react+redux, но тут это будет оверинжинирингом.
+ *
  * @param {number} id - идентификатор пользователя, чьи сообщения должны быть прочитаны
  * @returns {ChatAction}
  */
@@ -45,6 +53,6 @@ export const markAsRead = (id: number): ChatAction<number> => {
     socketClient.send(JSON.stringify(event));
     return {
         type: actionTypes.MARK_AS_READ,
-            payload: id,
+        payload: id,
     }
 };
