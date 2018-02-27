@@ -7,13 +7,17 @@ import { dateFormatter } from '../../utils/formatters';
 
 /**
  * @typedef {UserData} UserOuterProps
+ * @property {number} globalIndex
  */
 export type UserOuterProps = UserData & {
-    globalIndex: number;
+    globalIndex: number,
 }
 
 /**
  * @typedef {UserOuterProps} UserInnerProps
+ * @property {number} globalIndex
+ * @property {function(number): any} markAsRead
+ * @property {function(void): void} read
  */
 export type UserInnerProps = UserOuterProps & {
     markAsRead: (id: number) => any,
@@ -22,6 +26,14 @@ export type UserInnerProps = UserOuterProps & {
 
 /**
  * Элемент списка пользователей чата, выводящий информацию об отдельном пользователе.
+ * 
+ * globalIndex передаётся извне для правильной отработки css-анимации,
+ * чтобы анимируемые при перемещении (когда приходит сообщение) элементы были всегда наверху.
+ * Установка z-index не добавляет никакого пенальти для производительности, т.к.:
+ * 1. Каждый div.User-root уже в своём слое
+ * 2. z-index у конкретного .User-root меняется только тогда, когда меняется его позиция в списке
+ * (например приходит сообщение).
+ * 
  * @class User
  * @param {UserInnerProps} props
  */
